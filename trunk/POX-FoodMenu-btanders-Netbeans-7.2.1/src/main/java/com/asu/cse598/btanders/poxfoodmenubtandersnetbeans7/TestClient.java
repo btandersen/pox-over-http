@@ -86,5 +86,7 @@ public class TestClient
         {
             System.out.println(e.getMessage());
         }
+        
+        foodProxy.close();
     }
 }

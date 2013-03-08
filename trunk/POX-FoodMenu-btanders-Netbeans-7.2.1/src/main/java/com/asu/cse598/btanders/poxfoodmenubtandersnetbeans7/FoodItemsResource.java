@@ -67,6 +67,8 @@ public class FoodItemsResource
     /**
      * init - Initializes, if required, the food item maps and the XML document
      * input stream
+     * 
+     * @return boolean - if the needed static members of the class are instantiated, it returns true, otherwise false...
      */
     private boolean init()
     {
@@ -91,6 +93,7 @@ public class FoodItemsResource
             }
         }
 
+        // verify the rquired static class members are instantiated...
         result = (null != FoodItemsResource.xmlFile) && (null != FoodItemsResource.foodItems) && (null != FoodItemsResource.reverseLookup);
 
         return result;
