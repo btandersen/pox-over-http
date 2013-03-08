@@ -70,7 +70,7 @@ public class FoodItemsResource
      */
     private boolean init()
     {
-        boolean result = false;
+        boolean result;
         
         // Get the input stream for the XML document
         if (null == FoodItemsResource.xmlFile)
