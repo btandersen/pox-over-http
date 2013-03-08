@@ -9,6 +9,9 @@
  * 
  * Assignment - POX over HTTP
  * 
+ * FoodItemsProxy
+ * This is the proxy class used by a Java-based client to access the food items
+ * resources
  */
 package com.asu.cse598.btanders.poxfoodmenubtandersnetbeans7;
 

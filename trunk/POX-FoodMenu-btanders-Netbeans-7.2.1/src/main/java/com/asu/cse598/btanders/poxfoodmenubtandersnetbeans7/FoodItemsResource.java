@@ -71,7 +71,7 @@ public class FoodItemsResource
     private boolean init()
     {
         boolean result;
-        
+
         // Get the input stream for the XML document
         if (null == FoodItemsResource.xmlFile)
         {
@@ -90,9 +90,9 @@ public class FoodItemsResource
                 FoodItemsResource.reverseLookup = this.generateReverseLookup();
             }
         }
-        
+
         result = (null != FoodItemsResource.xmlFile) && (null != FoodItemsResource.foodItems) && (null != FoodItemsResource.reverseLookup);
-        
+
         return result;
     }
 
@@ -120,47 +120,54 @@ public class FoodItemsResource
     public Response addFoodItem(String content)
     {
         ResponseBuilder builder; // a response builder for building the response
-        this.init(); // Make sure everything is ready...
-        FoodItem result = this.parseFoodItem(content); // attempt to parse the XML message and see it it corresponds to a valid food item
 
-        // if the message was okay...
-        if (null != result)
+        if (this.init()) // Make sure everything is ready...
         {
-            // start preping the response message
-            String resultStr = "<FoodItemAdded xmlns=”http://cse460.asu.edu/PoxAssignment”>\n";
-            // do a reverse lookup on the new food item's name to see if it does not already exist
-            Integer id = FoodItemsResource.reverseLookup.get(result.name);
+            FoodItem result = this.parseFoodItem(content); // attempt to parse the XML message and see it it corresponds to a valid food item
 
-            // if the id is null, the name does not already exist, so proceed with add
-            if (null == id)
+            // if the message was okay...
+            if (null != result)
             {
-                // lock the static variable nextId to make sure no other threads play with it while getting the next id...
-                synchronized (this)
-                {
-                    result.id = ++FoodItemsResource.nextId; // assign the next id to the new food item
-                }
+                // start preping the response message
+                String resultStr = "<FoodItemAdded xmlns=”http://cse460.asu.edu/PoxAssignment”>\n";
+                // do a reverse lookup on the new food item's name to see if it does not already exist
+                Integer id = FoodItemsResource.reverseLookup.get(result.name);
 
-                FoodItemsResource.foodItems.put(result.id, result); // stick it in the map
-                FoodItemsResource.reverseLookup.put(result.name, result.id); // also in the reverse lookup map
-                resultStr += "<FoodItemId>" + result.id + "</FoodItemId>\n"; // ad id to the response message
-                resultStr += "</FoodItemAdded>\n"; // close the response message
-                builder = Response.ok(resultStr); // build the response with 200 OK!!!
+                // if the id is null, the name does not already exist, so proceed with add
+                if (null == id)
+                {
+                    // lock the static variable nextId to make sure no other threads play with it while getting the next id...
+                    synchronized (this)
+                    {
+                        result.id = ++FoodItemsResource.nextId; // assign the next id to the new food item
+                    }
+
+                    FoodItemsResource.foodItems.put(result.id, result); // stick it in the map
+                    FoodItemsResource.reverseLookup.put(result.name, result.id); // also in the reverse lookup map
+                    resultStr += "<FoodItemId>" + result.id + "</FoodItemId>\n"; // ad id to the response message
+                    resultStr += "</FoodItemAdded>\n"; // close the response message
+                    builder = Response.ok(resultStr); // build the response with 200 OK!!!
+                }
+                else
+                {
+                    // Already exists...
+                    result = FoodItemsResource.foodItems.get(id); // get the preexisting food item
+                    resultStr += "<FoodItemId>" + result.id + "</FoodItemId>\n"; // ad id to the response message
+                    resultStr += "</FoodItemAdded>\n"; // close the response message
+                    builder = Response.status(409).entity(resultStr); // build the response with 409 CONFLICT!!!
+                }
             }
             else
             {
-                // Already exists...
-                result = FoodItemsResource.foodItems.get(id); // get the preexisting food item
-                resultStr += "<FoodItemId>" + result.id + "</FoodItemId>\n"; // ad id to the response message
-                resultStr += "</FoodItemAdded>\n"; // close the response message
-                builder = Response.status(409).entity(resultStr); // build the response with 409 CONFLICT!!!
+                builder = Response.status(400).entity("Invalid or incorrect input message"); // bad XML message format somewhere...
             }
         }
         else
         {
-            builder = Response.status(400).entity("Invalid or incorrect input message"); // bad XML message format somewhere...
+            builder = Response.status(500);
         }
 
-        return builder.build(); // return the response via the builderl
+        return builder.build(); // return the response via the builder
     }
 
     /**
@@ -184,41 +191,49 @@ public class FoodItemsResource
     public Response getFoodItem(@QueryParam(value = "foodItemId") final List<Integer> foodItemId)
     {
         ResponseBuilder builder; // ... for building responses
-        boolean okResults = true; // keep track of whether or not all requested items were found
-        this.init(); // initialize if required
-        String xmlResult = "<RetrievedFoodItems xmlns=”http://cse460.asu.edu/PoxAssignment”>\n"; // start building response message
 
-        // iterate over the list of requested id's
-        for (int i = 0; i < foodItemId.size(); ++i)
+        if (this.init()) // Make sure everything is ready...
         {
-            // try to pull the current id out of the map...
-            FoodItem foodItem = FoodItemsResource.foodItems.get(foodItemId.get(i));
+            boolean okResults = true; // keep track of whether or not all requested items were found
 
-            // if it was found, add it to the response message
-            if (null != foodItem)
+            String xmlResult = "<RetrievedFoodItems xmlns=”http://cse460.asu.edu/PoxAssignment”>\n"; // start building response message
+
+            // iterate over the list of requested id's
+            for (int i = 0; i < foodItemId.size(); ++i)
             {
-                xmlResult += foodItem.toString();
+                // try to pull the current id out of the map...
+                FoodItem foodItem = FoodItemsResource.foodItems.get(foodItemId.get(i));
+
+                // if it was found, add it to the response message
+                if (null != foodItem)
+                {
+                    xmlResult += foodItem.toString();
+                }
+                else
+                {
+                    // if not found, create a dummy food item and add it to the response
+                    foodItem = new FoodItem();
+                    foodItem.id = foodItemId.get(i);
+                    xmlResult += foodItem.toString();
+                    okResults = false; // indicate that at least one requested item was not found
+                }
+            }
+
+            xmlResult += "</RetrievedFoodItems >\n"; // close out the response message
+
+            // if all items requested were found...
+            if (okResults)
+            {
+                builder = Response.ok(xmlResult); // 200 OK!!!
             }
             else
             {
-                // if not found, create a dummy food item and add it to the response
-                foodItem = new FoodItem();
-                foodItem.id = foodItemId.get(i);
-                xmlResult += foodItem.toString();
-                okResults = false; // indicate that at least one requested item was not found
+                builder = Response.status(404).entity(xmlResult); // ... otherwise 404!!!
             }
-        }
-
-        xmlResult += "</RetrievedFoodItems >\n"; // close out the response message
-
-        // if all items requested were found...
-        if (okResults)
-        {
-            builder = Response.ok(xmlResult); // 200 OK!!!
         }
         else
         {
-            builder = Response.status(404).entity(xmlResult); // ... otherwise 404!!!
+            builder = Response.status(500);
         }
 
         return builder.build(); // send the response back
@@ -245,40 +260,48 @@ public class FoodItemsResource
     public Response getFoodItemByPost(String content)
     {
         ResponseBuilder builder; // builder for responses
-        boolean okResults = true; // track if all requested items were found
-        this.init(); // init if needed
-        String xmlResult = "<RetrievedFoodItems xmlns=”http://cse460.asu.edu/PoxAssignment”>\n"; // start the response message
-        ArrayList<FoodItem> requestedFoodItems = this.parseGetRequest(content); // parse the XML request message
 
-        // For all the food items returned...
-        for (int i = 0; i < requestedFoodItems.size(); ++i)
+        if (this.init()) // Make sure everything is ready...
         {
-            // get the item
-            FoodItem foodItem = requestedFoodItems.get(i);
+            boolean okResults = true; // track if all requested items were found
 
-            // make sure it is not null
-            if (null != foodItem)
+            String xmlResult = "<RetrievedFoodItems xmlns=”http://cse460.asu.edu/PoxAssignment”>\n"; // start the response message
+            ArrayList<FoodItem> requestedFoodItems = this.parseGetRequest(content); // parse the XML request message
+
+            // For all the food items returned...
+            for (int i = 0; i < requestedFoodItems.size(); ++i)
             {
-                xmlResult += foodItem.toString(); // add to resposne message
+                // get the item
+                FoodItem foodItem = requestedFoodItems.get(i);
+
+                // make sure it is not null
+                if (null != foodItem)
+                {
+                    xmlResult += foodItem.toString(); // add to resposne message
+                }
+
+                // if one of the returned food items has a null name, that indicates it was not really in the map
+                if (null == foodItem.name)
+                {
+                    okResults = false; // so at least one was not found
+                }
             }
 
-            // if one of the returned food items has a null name, that indicates it was not really in the map
-            if (null == foodItem.name)
+            xmlResult += "</RetrievedFoodItems >\n"; // close out the message
+
+            // OK...
+            if (okResults)
             {
-                okResults = false; // so at least one was not found
+                builder = Response.ok(xmlResult); // 200 OK!!!
             }
-        }
-
-        xmlResult += "</RetrievedFoodItems >\n"; // close out the message
-
-        // OK...
-        if (okResults)
-        {
-            builder = Response.ok(xmlResult); // 200 OK!!!
+            else
+            {
+                builder = Response.status(404).entity(xmlResult); // ... otherwise 404!!!
+            }
         }
         else
         {
-            builder = Response.status(404).entity(xmlResult); // ... otherwise 404!!!
+            builder = Response.status(500);
         }
 
         return builder.build(); // return the response
@@ -293,7 +316,7 @@ public class FoodItemsResource
     {
         HashMap<Integer, FoodItem> result = new HashMap(); // new map to populate
         String line; // for the scanner...
-        
+
         // try / catch for exceptions while parsing input file...
         try
         {
@@ -372,7 +395,9 @@ public class FoodItemsResource
     }
 
     /**
-     * parseValue - primitive first attempt at extracting values from between two xml tags (only use it for parsing initial file)
+     * parseValue - primitive first attempt at extracting values from between
+     * two xml tags (only use it for parsing initial file)
+     *
      * @param str
      * @return - the extracted value from the tag element
      */
@@ -381,11 +406,13 @@ public class FoodItemsResource
         return str.substring(str.indexOf(">") + 1, str.lastIndexOf("<"));
     }
 
-   /**
-    * parseCountry - grabs the country identifier from the <FoodItem> opening tag
-    * @param str - the tag to extract the country from
-    * @return - the extracted country code
-    */
+    /**
+     * parseCountry - grabs the country identifier from the <FoodItem> opening
+     * tag
+     *
+     * @param str - the tag to extract the country from
+     * @return - the extracted country code
+     */
     private String parseCountry(String str)
     {
         // rather specific to the implementation... thus not very forgiving
@@ -419,8 +446,10 @@ public class FoodItemsResource
 
     /**
      * parseFoodItem - extract the food item from an XML add message
+     *
      * @param str - XML message to parse
-     * @return FoodItem - the extracted food item or null if the message was bad...
+     * @return FoodItem - the extracted food item or null if the message was
+     * bad...
      */
     private FoodItem parseFoodItem(String str)
     {
@@ -451,9 +480,12 @@ public class FoodItemsResource
     }
 
     /**
-     * parseGetRequest - Used for parsing the POST POX over HTTP version of the get request
+     * parseGetRequest - Used for parsing the POST POX over HTTP version of the
+     * get request
+     *
      * @param str - the XML request message
-     * @return - an array list of food items, possibly containing some bad (default) food items
+     * @return - an array list of food items, possibly containing some bad
+     * (default) food items
      */
     private ArrayList<FoodItem> parseGetRequest(String str)
     {
@@ -472,7 +504,7 @@ public class FoodItemsResource
             if (testStr.matches("<FoodItemId>([0-9]+)</FoodItemId>"))
             {
                 index = i + 1; // if so, update the new start index
-                FoodItem foodItem = null; // food item
+                FoodItem foodItem; // food item
                 int id = Integer.parseInt(this.extractElementContent(testStr, "FoodItemId")); // get the requested id
                 foodItem = FoodItemsResource.foodItems.get(new Integer(id)); // try and pull it from the map
 
@@ -491,7 +523,9 @@ public class FoodItemsResource
     }
 
     /**
-     * extractElementContent - pulls the content from an XML element with the specified name passed
+     * extractElementContent - pulls the content from an XML element with the
+     * specified name passed
+     *
      * @param str - the string to extract content from
      * @param tagName - the tag name of the element of interest
      * @return String - the extracted content
@@ -515,7 +549,9 @@ public class FoodItemsResource
     }
 
     /**
-     * generateReverseLookup - creates the reverse lookup map from the food items map
+     * generateReverseLookup - creates the reverse lookup map from the food
+     * items map
+     *
      * @return HashMap<String, Integer> - the reverse lookup map
      */
     private HashMap<String, Integer> generateReverseLookup()
