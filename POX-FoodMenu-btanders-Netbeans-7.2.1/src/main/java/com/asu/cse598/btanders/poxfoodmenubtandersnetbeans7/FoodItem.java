@@ -9,6 +9,12 @@
  * 
  * Assignment - POX over HTTP
  * 
+ * FoodItem
+ * Simple Transfer Object-like class with all members public and no getters or 
+ * setters. No transformations done to data members so all access is via direct 
+ * assignment or reference. It does have one method to check validity of a
+ * created instance.
+ * 
  */
 package com.asu.cse598.btanders.poxfoodmenubtandersnetbeans7;
 
@@ -18,6 +24,7 @@ package com.asu.cse598.btanders.poxfoodmenubtandersnetbeans7;
  */
 public class FoodItem
 {
+    // public members since no transformations or abstractions are needed
     public String country;
     public Integer id;
     public String name;
@@ -25,6 +32,7 @@ public class FoodItem
     public String category;
     public Double price;
 
+    // Default constructor setting everything to null...
     public FoodItem()
     {
         this.country = null;
@@ -35,10 +43,13 @@ public class FoodItem
         this.price = null;
     }
 
+    // private method to return an XML representation of the instance for the
+    // toString() method...
     private String toXml()
     {
         String result = "";
 
+        // if the name is null, then this is treated as an invalid food item
         if (null != name)
         {
             result += "<FoodItem country=\"" + this.country + "\">\n";
@@ -59,8 +70,11 @@ public class FoodItem
         return result;
     }
 
+    // check to see if an instance is valid, that being all members except id
+    // are not null...
     public boolean isValidFoodItem()
     {
+        // don't care about id since that may be assigned at a later time after creation
         return (this.country != null
                 && this.name != null
                 && this.description != null
@@ -68,6 +82,8 @@ public class FoodItem
                 && this.price != null);
     }
 
+    // overridden toString method using the privte toXml method to represent the
+    // instance as an XML message
     @Override
     public String toString()
     {
